@@ -1,0 +1,109 @@
+---
+title: "Introduction to Quarto"
+format: html
+bibliography: references.bib
+---
+
+# Introduction
+
+<!-- -->
+
+## About the data
+
+-   Water sample data from Arctic Ocean
+-   Data downloaded from the Arctic Data Center: [Tweedie ADC data](http://doi.org/10.18739/A25T3FZ8X)
+
+## Setup
+
+```{r}
+#| warning: false
+library(readr)
+library(here)
+```
+
+## Read in data
+
+```{r}
+#| warning: false
+bg_chem <- read_csv(here("data/BGchem2008data.csv"))
+```
+
+
+# Analysis
+
+## a. Calculate summary statistics
+<!-- -->
+```{r}
+#| eval: false
+#| echo: false
+
+# Print column names
+colnames(bg_chem)
+
+#show the data structure
+str(bg_chem)
+
+#show first few lines
+head(bg_chem)
+
+#summary statistics of each column
+summary(bg_chem)
+
+#print unique values in a specific column
+unique(bg_chem$Date)
+```
+
+## b. Calculate mean Redfield ratio
+```{r}
+# calculate means
+nitrate <- mean(bg_chem$NO3)
+nitrite <- mean(bg_chem$NO2)
+amm <- mean(bg_chem$NH4)
+phos <- mean(bg_chem$P)
+
+```
+
+
+## c. Plot Redfield ratio
+
+```{r}
+ratio <- (nitrate + nitrite + amm) / phos
+```
+
+Here is the ratio we calculated: `r ratio`  
+Here is the ratio we calculated: `r round(ratio)`
+
+# Conclusion
+
+
+
+
+
+
+Markdown formatting
+
+# This is a large title
+
+## this is a smaller title
+
+##### this is a tiny title
+
+*text italics* **bold**
+
+## station data
+
+1.  here we will load our .csv files
+2.  here is where we define the datetime format and force the time zone to AKST
+3.  The third step is to look for missing [@oke2020] data.
+
+superscript^2^
+
+subscript~2~
+
+~~strikethrough~~
+
+| A   | B   | C     |
+|-----|-----|-------|
+| 1   | x   | test  |
+| 2   | y   | test1 |
+| 3   | z   | test2 |
