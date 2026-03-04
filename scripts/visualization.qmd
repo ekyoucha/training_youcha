@@ -1,0 +1,186 @@
+---
+title: "Visualization with ggplot2 and More"
+format: html
+---
+
+
+
+```{r}
+#| warning: false
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(janitor) # expedite cleaning and exploring data
+library(scales) # scale functions for visualization
+
+```
+
+# Look at ggplot
+```{r}
+#read in dataset
+#| message: false
+escape_raw <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/urn%3Auuid%3Af119a05b-bbe7-4aea-93c6-85434dcb1c5e")
+```
+
+```{r}
+#use the janitor package to cleanup the column names - change file headings to lower case and underscores
+escape <- escape_raw %>% clean_names()
+```
+
+```{r}
+
+#take data and summarize to annual numbers
+annual_esc <- escape %>%
+    filter(species %in% c("Chinook", "Sockeye", "Chum", "Coho", "Pink")) %>%
+    mutate(year = lubridate::year(sample_date)) %>%
+    group_by(species, sasap_region, year) %>%
+    summarize(escapement = sum(daily_count))
+
+annual_esc <- escape %>%
+    filter(species %in% c("Chinook", "Sockeye", "Chum", "Coho", "Pink")) %>% 
+  mutate(year = lubridate::year(sample_date)) %>% 
+  group_by(species, sasap_region, year) %>% 
+  summarize(escapement = sum(daily_count))
+
+```
+
+# Use ggplot2 to visualize data
+
+```{r}
+#make a plot shows us a blank plot
+ggplot()
+# now add stuff to the base plot
+# First explain what the base plot should be: plot salmon species based on x axis of species and the escapement as y axis aes are aesthetics and sets up the axis based on the specified columns in aes - and labels for each axis.
+# need to add plus sign +  to next specify the type of plot and the data in it using geom_
+ggplot(data = annual_esc, mapping = aes(x = species, y = escapement)) +
+  geom_col()
+#that was overall mapping for the whole plot
+
+#could also do it like this:
+ggplot(data = annual_esc) +
+  geom_col(aes(x = species, y = escapement))
+
+# or like this
+ggplot() +
+  geom_col(data = annual_esc, aes(x = species, y = escapement))
+
+#they all do the same thing.
+
+#add some color to the species bars and it also automatically adds a legend
+ggplot(data = annual_esc, mapping = aes(x = species, y = escapement)) +
+  geom_col(aes(fill = species))
+
+#add some point data
+ggplot(data = annual_esc, mapping = aes(x = species, y = escapement)) +
+  geom_col(aes(fill = species)) +  # end state of the bar would be the total over all years and regions
+geom_point()  #here it literally plots each point
+
+#add some point data
+ggplot(data = annual_esc, mapping = aes(x = species, y = escapement)) +
+  geom_point()  #here it literally plots each point in all the years
+
+
+
+```
+
+
+```{r}
+annual_esc %>% 
+  filter(year == 1974, species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_point()
+
+#look at a boxplot for 1974
+annual_esc %>% 
+  filter(year == 1974, species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_boxplot()
+
+#look at a violin plot for 1974 to see where most of the data is
+annual_esc %>% 
+  filter(year == 1974, species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_violin()
+
+#look at a violin plot for 1974 to see where most of the data is - and add points
+annual_esc %>% 
+  filter(year == 1974, species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_violin() +
+  geom_point()
+
+#do for all years and remove year 
+annual_esc %>% 
+  filter(species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_boxplot()
+
+ggplot(data = annual_esc, mapping = aes(x = species, y = escapement)) +
+  geom_col(aes(fill = species))
+
+
+#look at a violin plot for 1974 to see where most of the data is - and add points
+annual_esc %>% 
+  filter(year == 1974, species %in% c("Chum", "Pink")) %>% # lets look at individual years and species to plot
+  ggplot(aes(x=species, y=escapement)) +
+  geom_violin() +
+  geom_point()
+
+```
+
+
+#Making Nice Tables  
+
+```{r}
+#data tables
+library(DT)
+
+locations <- escape %>% 
+  distinct(location, latitude, longitude) %>% 
+  drop_na()
+```
+
+```{r}
+datatable(locations)
+```
+
+## Mapping with leaflet package
+
+```{r}
+# add all the locations to an Open Street map
+library(leaflet)
+ leaflet(locations) %>% 
+   addTiles() %>% 
+   addMarkers(
+     lng = ~ longitude,
+     lat = ~ latitude,
+     popup = ~ location)
+   )
+```
+
+```{r}
+#make an even better map!
+leaflet(locations) %>%
+    addWMSTiles(
+        "https://wms.gebco.net/mapserv?request=getmap&service=wms&BBOX=-90,-180,90,360&crs=EPSG:4326&format=image/jpeg&layers=gebco_latest&width=1200&height=600&version=1.3.0",
+        layers = 'GEBCO_LATEST',
+        attribution = "Imagery reproduced from the GEBCO_2022 Grid, WMS 1.3.0 GetMap, www.gebco.net"
+    ) %>%
+    addCircleMarkers(
+        lng = ~ longitude,
+        lat = ~ latitude,
+        popup = ~ location,
+        radius = 5,
+        # set fill properties
+        fillColor = "salmon",
+        fillOpacity = 1,
+        # set stroke properties
+        stroke = TRUE,
+        weight = 0.5,
+        color = "white",
+        opacity = 1
+    )
+```
+
+
