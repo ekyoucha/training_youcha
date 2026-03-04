@@ -1,0 +1,232 @@
+---
+title: "Tidying and Wrangling"
+format: html
+---
+
+```{r}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(readr)
+```
+
+# Data Sources
+
+## Read in our data
+```{r}
+#| message: false
+catch_original <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+
+```
+
+## Explore the data
+```{r}
+colnames(catch_original)
+head(catch_original)
+summary(catch_original)
+unique(catch_original$Region)
+# control shift M is %>% !!!! wow
+```
+
+# Cleaning and reshaping 
+
+## Using the select() function to select columns in our dataset
+
+```{r}
+#select() to keep the columns we want
+catch_data <- catch_original %>% 
+  select(Region, Year, Chinook, Sockeye, Coho, Pink, Chum)
+head(catch_data)
+# OR we could just drop columns we don't want
+catch_data<- catch_original %>% 
+  select(-All,-notesRegCode)
+
+```
+
+##check the column types using glimpse()
+```{r}
+glimpse(catch_data)
+# we see chinook is a character
+```
+
+
+## changing column contents with mutate()
+```{r}
+#change chinook column to numeric
+catch_clean <- catch_data %>% 
+  mutate(Chinook = as.numeric(Chinook))
+
+
+```
+```{r}
+#there were some na characters show them
+is.na(catch_clean$Chinook)
+#get the location of the na value, if found call it an i
+i <- which(is.na(catch_clean$Chinook))
+#Look a the specific place where it is occurring (row) 
+catch_data[i,]
+#this was a pdf originally and was converted to a table so the I showed up.
+
+#use mutate to fix that: if chinoook = I then convert to a 1 or just use what is already in chinook and then save as numeric (instead of character)
+catch_clean<-catch_data %>% 
+  mutate(Chinook = if_else(condition = Chinook == "I", 
+                           true="1", 
+                           false = Chinook),
+         Chinook = as.numeric(Chinook))
+head(catch_clean)
+```
+## Changing file shape using pivot_longer() and pivot_wider()
+```{r}
+#decrease the columns of all the types of salmon and pivot them into rows (tidy format) new name will be species
+catch_long <- catch_clean %>% 
+  pivot_longer(cols = -c(Region, Year),
+               names_to = "species",
+               values_to ="catch")
+
+head(catch_long)
+#now change it back to the wide format, move the species back into their own columns
+catch_wide<- catch_long %>% 
+  pivot_wider(names_from = species, 
+              values_from = catch)
+head(catch_wide)
+```
+## rename the columns with rename()
+```{r}
+# the column with catch is in the thousands
+catch_long <- catch_long %>% 
+  rename(catch_thousands = catch)
+head(catch_long)
+
+```
+
+```{r}
+
+#add a new column with the actual catch value (by multiplying by a thousand) and drop the catch thousands from the dataset
+catch_long <- catch_long %>% 
+  mutate(catch=catch_thousands*1000) %>% 
+  select(-catch_thousands)
+
+head(catch_long)
+
+
+```
+##summary statistics using group_by and summarize()
+initial data - split by region - apply - to get mean catch per region - lastly combine into summary statistics
+```{r}
+#get average catch by region
+mean_region <- catch_long %>% 
+  group_by(Region) %>% 
+  summarise(mean_catch = mean(catch))
+head(mean_region)
+
+#number of rows for each group using a function n() to get the counts
+n_region <- catch_clean %>% 
+  group_by(Region) %>% 
+  summarise(n = n())
+head(n_region)
+
+```
+#Filtering rows using filter()
+```{r}
+#filter by one specific region SSE, return all the rows where region is SSE
+sse_catch<-catch_long %>% 
+  filter(Region == "SSE")
+head(sse_catch)
+
+#filter catch_long where the catch column is over 1 million fish
+catch_million <- catch_long %>% 
+  filter(catch > 1000000)
+head(catch_million)
+
+#filter the rows where the region is SSE and chinook
+chinook_sse <- catch_long %>% 
+  filter(Region == "SSE" & species == "Chinook")
+
+head(chinook_sse)
+
+```
+
+##Sorting data with arrange() to look at data in a specific order
+
+```{r}
+#look at the mean catch by region and arrange by mean catch
+mean_region <- catch_long %>% 
+  group_by(Region) %>% 
+  summarise(mean_catch = mean(catch)) %>% 
+  arrange(mean_catch)
+head(mean_region)
+#show mean catch in  descending order desc()
+mean_region <- catch_long %>% 
+  group_by(Region) %>% 
+  summarise(mean_catch = mean(catch)) %>% 
+  arrange(desc(mean_catch))
+head(mean_region)
+
+```
+## combinging datasets using left join
+```{r}
+#get the region file and add the management area to the catch long file but call it catch_joined
+region_defs <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1") %>% 
+  select(code,mgmtArea)
+head(region_defs)
+catch_joined<-left_join(catch_long, region_defs, by=c("Region" = "code"))
+head(catch_joined)
+```
+```{r}
+#or do it this way using rename
+region_defs <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1") %>% 
+  select(code,mgmtArea) %>% 
+  rename(Region = code, Region_Name = mgmtArea)
+
+catch_joined <- left_join(catch_long, region_defs, by = c("Region"))
+head(catch_joined)
+```
+## split and combine values in columns
+
+```{r}
+#create site names/nuimbers
+sites_df <- data.frame(site = c("HAW-101", "HAW-103","OAH-320"))
+head(sites_df)
+# split site names into 2 columns using separate()
+split_df <- sites_df %>% 
+  separate(site, c("island","site_number"), sep = "-")
+head(split_df)
+```
+
+```{r}
+dates_df<-data.frame(
+  year = c("1930", "1930", "1932"),
+  month= c("12", "12", "12"),
+  day = c("14", "15", "16")
+)
+head(dates_df)
+#unite the 3 columns into one column usiing a separator and call the column "date"
+dates_unite <- dates_df %>% 
+  unite(col=date, year, month, day, sep = "-")
+head(dates_unite)
+
+
+```
+```{r}
+#this could all be done in 1 step
+mean_region <- catch_original %>% 
+  select(-All, -notesRegCode) %>% 
+  mutate(Chinook = if_else(Chinook == "I", "1", Chinook)) %>% 
+  mutate(Chinook = as.numeric(Chinook)) %>% 
+  pivot_longer(-c(Region, Year),
+               names_to = "species",
+               values_to = "catch") %>% 
+  mutate(catch = catch*1000) %>% 
+  group_by(Region) %>% 
+  summarise(mean_catch = mean(catch)) %>% 
+  arrange(desc(mean_catch))
+
+head(mean_region)
+
+```
+#save
+```{r}
+library(here)
+write_csv(mean_region, here("data/mean_catch_by_region.csv"))
+```
+
