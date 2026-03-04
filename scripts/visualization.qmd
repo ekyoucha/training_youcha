@@ -4,7 +4,6 @@ format: html
 ---
 
 
-
 ```{r}
 #| warning: false
 library(readr)
@@ -16,7 +15,8 @@ library(scales) # scale functions for visualization
 
 ```
 
-# Look at ggplot
+# Look at ggplot  
+
 ```{r}
 #read in dataset
 #| message: false
@@ -145,7 +145,8 @@ locations <- escape %>%
 datatable(locations)
 ```
 
-## Mapping with leaflet package
+## Mapping with leaflet package  
+
 
 ```{r}
 # add all the locations to an Open Street map
@@ -156,7 +157,6 @@ library(leaflet)
      lng = ~ longitude,
      lat = ~ latitude,
      popup = ~ location)
-   )
 ```
 
 ```{r}
